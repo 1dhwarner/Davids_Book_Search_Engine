@@ -1,3 +1,4 @@
+const { AuthenticationError } = require('apollo-server-express');
 const { Book, User } = require('../models');
 const { signToken } = require('../utils/auth');
 
@@ -17,22 +18,22 @@ const resolvers = {
     },
     Mutation: {
         addUser: async (parent, { username, email, password }) => {
+            console.log('resolver mutation: ', username, email, password);
             const user = await User.create({ username, email, password });
             const token = signToken(user);
+            console.log(token);
             return { token, user };
         },
         saveBook: async (parent, args, context) => {
-            console.log(user);
-            if (context.user) {
-                const updatedUser = await User.findOneAndUpdate(
-                    { _id: user._id },
-                    { $addToSet: { savedBooks: body } },
-                    { new: true, runValidators: true }
-                );
-                return updatedUser;
-            } else {
-                throw new AuthenticationError('You need to be logged in!');
+            const updatedUser = await User.findOneAndUpdate(
+                { _id: context._id },
+                { $addToSet: { savedBooks: context.savedBooks } },
+                { new: true, runValidators: true }
+            );
+            if (!updatedUser) {
+                throw new AuthenticationError('No user found with this id');
             }
+            return updatedUser;
         },
         deleteBook: async (parent, args, context) => {
             const updatedUser = await User.findOneAndUpdate(
@@ -41,25 +42,29 @@ const resolvers = {
                 { new: true }
             );
             if (!updatedUser) {
-                return res.status(404).json({ message: "Couldn't find user with this id!" });
+                throw new AuthenticationError('No user found with this id');
             }
-            return res.json(updatedUser);
+            return updatedUser;
         },
-        loginUser: async (parent, { username, email, password }) => {
-            const user = await User.findOne({ $or: [{ username: body.username }, { email: parent.email }] });
+
+        login: async (parent, { username, email, password }) => {
+            console.log('enterting login');
+            const user = await User.findOne({ $or: [{ username: username }, { email: email }] });
             if (!user) {
-                return res.status(400).json({ message: "Can't find this user" });
+                throw new AuthenticationError('No user found with this email address');
             }
 
-            const correctPw = await user.isCorrectPassword(parent.password);
+            const correctPw = await user.isCorrectPassword(password);
 
             if (!correctPw) {
-                return res.status(400).json({ message: 'Wrong password!' });
+                throw new AuthenticationError('Incorrect credentials');
             }
             const token = signToken(user);
-            res.json({ token, user });
+            console.log('exiting login');
+            return { token, user };
+
         },
     },
 };
 
-module.export = resolvers; 
+module.exports = resolvers; 
