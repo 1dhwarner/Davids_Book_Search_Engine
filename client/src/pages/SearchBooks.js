@@ -74,7 +74,7 @@ const SearchBooks = () => {
       console.log('bookToSave: ', bookToSave);
       console.log('SAVE_BOOK: ', saveBook);
       const response = await saveBook({
-        variables: bookToSave, token
+        variables: { input: bookToSave }
       });
       console.log('saveBook Response: ', response);
       if (response.errors) {
